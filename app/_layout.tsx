@@ -13,6 +13,7 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
+      <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="splash" />
         <Stack.Screen name="login" />
@@ -21,7 +22,6 @@ export default function RootLayout() {
         <Stack.Screen name="visit" />
         <Stack.Screen name="follow-up-questions" />
       </Stack>
-      <StatusBar style="auto" />
     </AuthProvider>
   );
 }

@@ -207,6 +207,11 @@ const styles = StyleSheet.create({
     fontSize: professionalTheme.fontSize.md,
     color: professionalTheme.colors.text.primary,
     backgroundColor: professionalTheme.colors.background.card,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
   emailDisplay: {
     fontSize: professionalTheme.fontSize.md,

@@ -1,8 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
@@ -56,14 +56,15 @@ export default function LoginScreen() {
       <LinearGradient
         colors={[`${theme.colors.primary}CC`, `${theme.colors.primary}E6`]}
         style={styles.background}
-      >
-        <View style={styles.iconContainer}>
-          <Ionicons name="medical" size={120} color="rgba(255, 255, 255, 0.15)" />
-        </View>
-      </LinearGradient>
+      />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Card style={styles.formCard}>
+          <Image
+            source={require('../../assets/images/logo/sant-egidio-full-cropped.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.title}>Welcome Back</Text>
           <Text style={styles.subtitle}>Sign in to access your patients</Text>
 
@@ -105,6 +106,7 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </Card>
       </ScrollView>
+      <StatusBar style="light" />
     </View>
   );
 }
@@ -120,10 +122,11 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-  iconContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+  logo: {
+    width: 110,
+    height: 132,
+    alignSelf: 'center',
+    marginBottom: theme.spacing.md,
   },
   scrollContent: {
     flex: 1,

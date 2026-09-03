@@ -249,6 +249,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: professionalTheme.colors.border,
     marginBottom: professionalTheme.spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
   sectionTitle: {
     fontSize: professionalTheme.fontSize.lg,

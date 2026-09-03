@@ -16,16 +16,27 @@ export const AnimatedPatientCard: React.FC<AnimatedPatientCardProps> = ({
   onPress,
   getPriorityColor,
 }) => {
+  const priority = (patient as any).priority as string | undefined;
+  const initials = patient.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+
   return (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.container}
       onPress={() => onPress(patient)}
       activeOpacity={0.7}
     >
+      <View style={styles.avatar}>
+        <Text style={styles.avatarText}>{initials}</Text>
+      </View>
       <View style={styles.patientInfo}>
         <Text style={styles.patientName}>{patient.name}</Text>
         <Text style={styles.patientCondition}>{patient.visitReason}</Text>
       </View>
+      {priority && (
+        <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(priority) }]}>
+          <Text style={styles.priorityText}>{priority}</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 };
@@ -46,6 +57,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 2,
     elevation: 1,
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: professionalTheme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: professionalTheme.spacing.md,
+  },
+  avatarText: {
+    fontSize: professionalTheme.fontSize.sm,
+    fontWeight: professionalTheme.fontWeight.bold as '700',
+    color: '#ffffff',
   },
   patientInfo: {
     flex: 1,

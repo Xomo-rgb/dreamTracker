@@ -1,4 +1,4 @@
-import { collection, addDoc, query, where, getDocs, updateDoc, doc, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, getDocsFromServer, updateDoc, doc, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from './authService';
 
 export interface Notification {
@@ -83,8 +83,11 @@ export class NotificationService {
         where('userId', '==', userId),
         where('read', '==', false)
       );
-      const snapshot = await getDocs(q);
-      const updates = snapshot.docs.map(doc => 
+      // Prefer a fresh server read: a cache-only response on a device that
+      // has never synced this exact query comes back empty rather than
+      // erroring, which would silently skip every update below.
+      const snapshot = await getDocsFromServer(q).catch(() => getDocs(q));
+      const updates = snapshot.docs.map(doc =>
         updateDoc(doc.ref, { read: true })
       );
       await Promise.all(updates);

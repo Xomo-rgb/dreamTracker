@@ -7,6 +7,7 @@ import { ProfessionalHeader } from '../components/common/ProfessionalHeader';
 import { AnalyticsCard } from '../components/common/AnalyticsCard';
 import { professionalTheme } from '../theme/professional';
 import { PatientService } from '../services/patientService';
+import { UserService } from '../services/userService';
 
 export default function AdminHomeScreen() {
   const [stats, setStats] = useState({
@@ -22,7 +23,10 @@ export default function AdminHomeScreen() {
 
   const loadStats = async () => {
     try {
-      const patients = await PatientService.getAllPatients();
+      const [patients, activeExperts] = await Promise.all([
+        PatientService.getAllPatients(),
+        UserService.getActiveExpertsCount(),
+      ]);
       const pending = patients.filter(p => p.isActive).length;
       const completed = patients.filter(p => !p.isActive).length;
 
@@ -30,7 +34,7 @@ export default function AdminHomeScreen() {
         totalPatients: patients.length,
         pendingVisits: pending,
         completedToday: completed,
-        activeExperts: 5, // TODO: Get from users collection
+        activeExperts,
       });
     } catch (error) {
       console.error('Error loading stats:', error);

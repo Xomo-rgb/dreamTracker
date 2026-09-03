@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal, Alert } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CustomAlert } from '../components/common/CustomAlert';
 import { PatientService } from '../services/patientService';
@@ -9,12 +9,15 @@ import { AssignmentService } from '../services/assignmentService';
 import { ActivityLogService } from '../services/activityLogService';
 import { professionalTheme } from '../theme/professional';
 import { useAuth } from '../hooks/AuthContext';
+import { LocationService } from '../services/locationService';
 
 export default function PatientDetailScreen() {
   const { user } = useAuth();
   const params = useLocalSearchParams();
   const { name, age, visitReason, priority, assignedDate, isCompleted, assignmentId } = params;
   const [patient, setPatient] = useState<any>(null);
+  const [patientLoading, setPatientLoading] = useState(true);
+  const [patientLoadError, setPatientLoadError] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [alert, setAlert] = useState({ visible: false, type: 'success' as 'success' | 'error', title: '', message: '' });
@@ -28,14 +31,24 @@ export default function PatientDetailScreen() {
   }, []);
 
   const loadPatientData = async () => {
+    setPatientLoading(true);
+    setPatientLoadError(false);
     try {
       const patientId = params.id as string;
       if (patientId) {
         const patientData = await PatientService.getPatientById(patientId);
         setPatient(patientData);
+        if (!patientData) {
+          setPatientLoadError(true);
+        }
+      } else {
+        setPatientLoadError(true);
       }
     } catch (error) {
       console.error('Error loading patient:', error);
+      setPatientLoadError(true);
+    } finally {
+      setPatientLoading(false);
     }
   };
 
@@ -87,8 +100,6 @@ export default function PatientDetailScreen() {
   };
 
   const handleRecordLocation = async () => {
-    const { LocationService } = await import('../services/locationService');
-    
     if (isRecording) return;
     
     setIsRecording(true);
@@ -226,38 +237,79 @@ export default function PatientDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Patient Information</Text>
           <View style={styles.patientDataCard}>
-            <View style={styles.dataRow}>
-              <Text style={styles.dataLabel}>Name:</Text>
-              <Text style={styles.dataValue}>{patient?.name || name}</Text>
-            </View>
-            <View style={styles.dataRow}>
-              <Text style={styles.dataLabel}>Age:</Text>
-              <Text style={styles.dataValue}>{patient?.age || age} years</Text>
-            </View>
-            <View style={styles.dataRow}>
-              <Text style={styles.dataLabel}>Gender:</Text>
-              <Text style={styles.dataValue}>{patient?.gender || 'Not specified'}</Text>
-            </View>
-            <View style={styles.dataRow}>
-              <Text style={styles.dataLabel}>Marital Status:</Text>
-              <Text style={styles.dataValue}>{patient?.maritalStatus || 'Not specified'}</Text>
-            </View>
-            <View style={styles.dataRow}>
-              <Text style={styles.dataLabel}>Phone:</Text>
-              <Text style={styles.dataValue}>{patient?.phone || 'Not specified'}</Text>
-            </View>
-            <View style={styles.dataRow}>
-              <Text style={styles.dataLabel}>Email:</Text>
-              <Text style={styles.dataValue}>{patient?.email || 'Not specified'}</Text>
-            </View>
-            <View style={styles.dataRow}>
-              <Text style={styles.dataLabel}>Address:</Text>
-              <Text style={styles.dataValue}>{patient?.address || 'Not specified'}</Text>
-            </View>
-            <View style={styles.dataRow}>
-              <Text style={styles.dataLabel}>Emergency Contact:</Text>
-              <Text style={styles.dataValue}>{patient?.emergencyContact || 'Not specified'}</Text>
-            </View>
+            {patientLoading ? (
+              <View style={styles.patientDataLoading}>
+                <ActivityIndicator size="small" color={professionalTheme.colors.primary} />
+                <Text style={styles.patientDataLoadingText}>Loading patient details...</Text>
+              </View>
+            ) : patientLoadError ? (
+              <View style={styles.patientDataLoading}>
+                <Ionicons name="cloud-offline-outline" size={28} color={professionalTheme.colors.text.muted} />
+                <Text style={styles.patientDataLoadingText}>Couldn't load the rest of this patient's details. Check your connection and try again.</Text>
+                <TouchableOpacity style={styles.retryButton} onPress={loadPatientData}>
+                  <Text style={styles.retryButtonText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <View style={styles.dataRow}>
+                  <View style={styles.dataLabelRow}>
+                    <Ionicons name="person-outline" size={16} color={professionalTheme.colors.text.muted} style={styles.dataIcon} />
+                    <Text style={styles.dataLabel}>Name</Text>
+                  </View>
+                  <Text style={styles.dataValue}>{patient?.name || name}</Text>
+                </View>
+                <View style={styles.dataRow}>
+                  <View style={styles.dataLabelRow}>
+                    <Ionicons name="calendar-outline" size={16} color={professionalTheme.colors.text.muted} style={styles.dataIcon} />
+                    <Text style={styles.dataLabel}>Age</Text>
+                  </View>
+                  <Text style={styles.dataValue}>{patient?.age || age} years</Text>
+                </View>
+                <View style={styles.dataRow}>
+                  <View style={styles.dataLabelRow}>
+                    <Ionicons name="male-female-outline" size={16} color={professionalTheme.colors.text.muted} style={styles.dataIcon} />
+                    <Text style={styles.dataLabel}>Gender</Text>
+                  </View>
+                  <Text style={styles.dataValue}>{patient?.gender || 'Not specified'}</Text>
+                </View>
+                <View style={styles.dataRow}>
+                  <View style={styles.dataLabelRow}>
+                    <Ionicons name="heart-outline" size={16} color={professionalTheme.colors.text.muted} style={styles.dataIcon} />
+                    <Text style={styles.dataLabel}>Marital Status</Text>
+                  </View>
+                  <Text style={styles.dataValue}>{patient?.maritalStatus || 'Not specified'}</Text>
+                </View>
+                <View style={styles.dataRow}>
+                  <View style={styles.dataLabelRow}>
+                    <Ionicons name="call-outline" size={16} color={professionalTheme.colors.text.muted} style={styles.dataIcon} />
+                    <Text style={styles.dataLabel}>Phone</Text>
+                  </View>
+                  <Text style={styles.dataValue}>{patient?.phone || 'Not specified'}</Text>
+                </View>
+                <View style={styles.dataRow}>
+                  <View style={styles.dataLabelRow}>
+                    <Ionicons name="mail-outline" size={16} color={professionalTheme.colors.text.muted} style={styles.dataIcon} />
+                    <Text style={styles.dataLabel}>Email</Text>
+                  </View>
+                  <Text style={styles.dataValue}>{patient?.email || 'Not specified'}</Text>
+                </View>
+                <View style={styles.dataRow}>
+                  <View style={styles.dataLabelRow}>
+                    <Ionicons name="location-outline" size={16} color={professionalTheme.colors.text.muted} style={styles.dataIcon} />
+                    <Text style={styles.dataLabel}>Address</Text>
+                  </View>
+                  <Text style={styles.dataValue}>{patient?.address || 'Not specified'}</Text>
+                </View>
+                <View style={[styles.dataRow, styles.dataRowLast]}>
+                  <View style={styles.dataLabelRow}>
+                    <Ionicons name="alert-circle-outline" size={16} color={professionalTheme.colors.text.muted} style={styles.dataIcon} />
+                    <Text style={styles.dataLabel}>Emergency Contact</Text>
+                  </View>
+                  <Text style={styles.dataValue}>{patient?.emergencyContact || 'Not specified'}</Text>
+                </View>
+              </>
+            )}
           </View>
         </View>
 
@@ -539,20 +591,56 @@ const styles = StyleSheet.create({
   dataRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: professionalTheme.spacing.sm,
+    alignItems: 'center',
+    paddingVertical: professionalTheme.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: professionalTheme.colors.border,
+  },
+  dataRowLast: {
+    borderBottomWidth: 0,
+  },
+  dataLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  dataIcon: {
+    marginRight: professionalTheme.spacing.sm,
   },
   dataLabel: {
     fontSize: professionalTheme.fontSize.sm,
     color: professionalTheme.colors.text.muted,
     fontWeight: professionalTheme.fontWeight.medium as '500',
-    flex: 1,
   },
   dataValue: {
     fontSize: professionalTheme.fontSize.sm,
     color: professionalTheme.colors.text.primary,
-    flex: 2,
+    fontWeight: professionalTheme.fontWeight.semibold as '600',
+    flex: 1,
     textAlign: 'right',
+  },
+  patientDataLoading: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: professionalTheme.spacing.xl,
+    gap: professionalTheme.spacing.sm,
+  },
+  patientDataLoadingText: {
+    fontSize: professionalTheme.fontSize.sm,
+    color: professionalTheme.colors.text.muted,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: professionalTheme.spacing.sm,
+    backgroundColor: professionalTheme.colors.primary,
+    paddingHorizontal: professionalTheme.spacing.xl,
+    paddingVertical: professionalTheme.spacing.sm,
+    borderRadius: professionalTheme.borderRadius.md,
+  },
+  retryButtonText: {
+    color: '#ffffff',
+    fontWeight: professionalTheme.fontWeight.semibold as '600',
+    fontSize: professionalTheme.fontSize.sm,
   },
   buttonIcon: {
     marginRight: professionalTheme.spacing.sm,

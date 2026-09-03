@@ -6,7 +6,7 @@ export default function LoginRoute() {
   const { isAuthenticated } = useAuth();
 
   if (isAuthenticated) {
-    return <Redirect href="/(tabs)" />;
+    return <Redirect href="/(tabs)/home" />;
   }
 
   return <LoginScreen />;

@@ -53,10 +53,21 @@ export class LocationService {
       const addresses = await Location.reverseGeocodeAsync({ latitude, longitude });
       if (addresses && addresses.length > 0) {
         const addr = addresses[0];
+
+        // Prefer a recognizable landmark/place name (e.g. "Ginnery Corner",
+        // "Malawi College of Accountancy") when the device's geocoding data
+        // has one for this location, rather than a bare street address.
+        if (addr.name && addr.name !== addr.street && addr.name !== addr.streetNumber) {
+          const parts = [addr.name];
+          if (addr.city && addr.city !== addr.name) parts.push(addr.city);
+          return parts.join(', ');
+        }
+
         // Format: "Street, City" or just "City" if no street
         const parts = [];
         if (addr.street) parts.push(addr.street);
         if (addr.city) parts.push(addr.city);
+        if (parts.length === 0 && addr.district) parts.push(addr.district);
         if (parts.length === 0 && addr.region) parts.push(addr.region);
         return parts.join(', ') || 'Unknown Location';
       }

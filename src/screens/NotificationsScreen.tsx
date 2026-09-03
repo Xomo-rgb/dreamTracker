@@ -6,6 +6,8 @@ import { router } from 'expo-router';
 import { professionalTheme } from '../theme/professional';
 import { NotificationService, Notification } from '../services/notificationService';
 import { useAuth } from '../hooks/AuthContext';
+import { AssignmentService } from '../services/assignmentService';
+import { withTimeout } from '../utils/withTimeout';
 
 export default function NotificationsScreen() {
   const { user } = useAuth();
@@ -50,7 +52,6 @@ export default function NotificationsScreen() {
     if (notification.type === 'assignment') {
       if (notification.metadata?.assignmentId) {
         console.log('Loading assignment:', notification.metadata.assignmentId);
-        const { AssignmentService } = await import('../services/assignmentService');
         const assignment = await AssignmentService.getAssignmentById(notification.metadata.assignmentId);
         
         console.log('Assignment loaded:', assignment);
@@ -85,9 +86,22 @@ export default function NotificationsScreen() {
   };
 
   const handleMarkAllAsRead = async () => {
-    if (!user) return;
-    await NotificationService.markAllAsRead(user.uid);
-    loadNotifications();
+    if (!user || processing) return;
+    setProcessing(true);
+
+    // Update the list immediately rather than waiting on the network — the
+    // write below still runs (and Firestore queues it if offline), but the
+    // user shouldn't have to wait a slow connection out just to see a read
+    // receipt reflected.
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+
+    try {
+      await withTimeout(NotificationService.markAllAsRead(user.uid), 10000, 'marking all as read');
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const getIcon = (type: string) => {
@@ -127,8 +141,8 @@ export default function NotificationsScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Notifications</Text>
         {notifications.some(n => !n.read) && (
-          <TouchableOpacity onPress={handleMarkAllAsRead}>
-            <Text style={styles.markAllRead}>Mark all as read</Text>
+          <TouchableOpacity onPress={handleMarkAllAsRead} disabled={processing}>
+            <Text style={styles.markAllRead}>{processing ? 'Marking...' : 'Mark all as read'}</Text>
           </TouchableOpacity>
         )}
       </View>

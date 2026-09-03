@@ -1,5 +1,8 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { initializeAuth, getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, User, sendPasswordResetEmail, Auth } from 'firebase/auth';
+// getReactNativePersistence is only in firebase/auth's RN build, which Metro resolves at bundle time; tsc sees the browser typings instead
+// @ts-ignore
+import { getReactNativePersistence } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthResult } from '../types';
@@ -19,11 +22,12 @@ export const db = getFirestore(app);
 
 let auth: Auth;
 try {
-  auth = getAuth(app);
-} catch {
   auth = initializeAuth(app, {
-    persistence: AsyncStorage as any
+    persistence: getReactNativePersistence(AsyncStorage)
   });
+} catch {
+  // initializeAuth throws if auth was already initialized for this app (e.g. Fast Refresh)
+  auth = getAuth(app);
 }
 
 export class AuthService {

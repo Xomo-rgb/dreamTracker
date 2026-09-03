@@ -7,21 +7,23 @@ import { ProfessionalHeader } from '../components/common/ProfessionalHeader';
 import { professionalTheme } from '../theme/professional';
 import { VisitService, Visit } from '../services/visitService';
 import { PatientService, Patient } from '../services/patientService';
+import { useAuth } from '../hooks/AuthContext';
 
 export default function VisitsScreen() {
+  const { user } = useAuth();
   const [assignedVisits, setAssignedVisits] = useState<Visit[]>([]);
   const [completedVisits, setCompletedVisits] = useState<Visit[]>([]);
   const [patients, setPatients] = useState<Record<string, Patient>>({});
   const [activeTab, setActiveTab] = useState<'assigned' | 'completed'>('assigned');
 
   useEffect(() => {
-    loadVisits();
-  }, []);
+    if (user) {
+      loadVisits(user.uid);
+    }
+  }, [user]);
 
-  const loadVisits = async () => {
+  const loadVisits = async (expertId: string) => {
     try {
-      const expertId = 'current_expert_id'; // TODO: Get from auth context
-      
       const [assigned, completed] = await Promise.all([
         VisitService.getAssignedVisits(expertId),
         VisitService.getCompletedVisits(expertId)

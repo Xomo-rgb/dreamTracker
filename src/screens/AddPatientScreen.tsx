@@ -356,6 +356,11 @@ const styles = StyleSheet.create({
     color: professionalTheme.colors.text.primary,
     borderWidth: 1,
     borderColor: professionalTheme.colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
   textArea: {
     height: 80,

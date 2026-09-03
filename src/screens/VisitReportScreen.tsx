@@ -4,6 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { professionalTheme } from '../theme/professional';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../services/authService';
 
 export default function VisitReportScreen() {
   const params = useLocalSearchParams();
@@ -17,9 +19,6 @@ export default function VisitReportScreen() {
 
   const loadVisitData = async () => {
     try {
-      const { collection, query, where, getDocs } = await import('firebase/firestore');
-      const { db } = await import('../services/authService');
-
       const visitsRef = collection(db, 'visits');
       const q = query(
         visitsRef,

@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, orderBy, query, updateDoc, where, deleteDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, orderBy, query, updateDoc, where, deleteDoc, addDoc } from 'firebase/firestore';
 import { db } from './authService';
 
 export interface Patient {
@@ -104,7 +104,6 @@ export class PatientService {
 
   static async addPatient(patient: Omit<Patient, 'id'>): Promise<void> {
     try {
-      const { addDoc } = await import('firebase/firestore');
       const patientsRef = collection(db, 'patients');
       await addDoc(patientsRef, {
         ...patient,

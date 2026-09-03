@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AuthService } from '../services/authService';
 import { UserService } from '../services/userService';
+import { ActivityLogService } from '../services/activityLogService';
 
 // Extended user type with profile info
 interface User {
@@ -122,7 +123,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const profile = await UserService.getUserProfile(result.user.uid);
         if (profile) {
-          const { ActivityLogService } = await import('../services/activityLogService');
           await ActivityLogService.logActivity(
             'Expert Login',
             result.user.uid,
@@ -142,7 +142,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       if (user) {
         try {
-          const { ActivityLogService } = await import('../services/activityLogService');
           await ActivityLogService.logActivity(
             'Expert Logout',
             user.uid,

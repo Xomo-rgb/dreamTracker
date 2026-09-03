@@ -1,6 +1,6 @@
 export const professionalTheme = {
   colors: {
-    primary: '#0ea5e9',
+    primary: '#1e3a8a',
     secondary: '#64748b',
     background: {
       main: '#ffffff',

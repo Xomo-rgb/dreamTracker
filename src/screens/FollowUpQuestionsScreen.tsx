@@ -5,6 +5,14 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { professionalTheme } from '../theme/professional';
 import { useDebounce } from '../hooks/useDebounce';
+import { useAuth } from '../hooks/AuthContext';
+import { collection, getDocs, getDocsFromServer, addDoc, Timestamp, query, where } from 'firebase/firestore';
+import { db } from '../services/authService';
+import { AssignmentService } from '../services/assignmentService';
+import { PatientService } from '../services/patientService';
+import { ActivityLogService } from '../services/activityLogService';
+import { NotificationService } from '../services/notificationService';
+import { withTimeout } from '../utils/withTimeout';
 
 interface Answer {
   questionId: number;
@@ -12,7 +20,26 @@ interface Answer {
   type: 'text' | 'choice';
 }
 
+// Mirrors the admin dashboard's seeded defaults (src/utils/seedQuestions.ts).
+// Used as a last-resort local fallback so a visit is never blocked just
+// because this device has no connectivity and has never cached the
+// questionnaire before — this list changes rarely enough that a stale
+// bundled copy is far better than refusing to let the visit proceed.
+const DEFAULT_QUESTIONS = [
+  { id: 'question_1', text: 'How are you feeling today?', order: 1 },
+  { id: 'question_2', text: 'Why did you miss your previous appointment?', order: 2 },
+  { id: 'question_3', text: 'On a scale of 0 to 10, how would you rate your pain level? (0 = no pain, 10 = worst pain)', order: 3 },
+  { id: 'question_4', text: 'Have you been taking your medication as prescribed?', order: 4 },
+  { id: 'question_5', text: 'Are you experiencing any side effects from your medication?', order: 5 },
+  { id: 'question_6', text: 'What symptoms are you currently experiencing?', order: 6 },
+  { id: 'question_7', text: 'Have your symptoms improved, stayed the same, or gotten worse?', order: 7 },
+  { id: 'question_8', text: 'What challenges are preventing you from attending appointments?', order: 8 },
+  { id: 'question_9', text: 'What can we do to help you attend your appointments regularly?', order: 9 },
+  { id: 'question_10', text: 'Do you have any questions or concerns about your treatment?', order: 10 },
+];
+
 export default function FollowUpQuestionsScreen() {
+  const { user } = useAuth();
   const params = useLocalSearchParams();
   const { name, patientId, assignmentId, checkInLocation, checkInLat, checkInLon } = params;
   
@@ -23,6 +50,8 @@ export default function FollowUpQuestionsScreen() {
   const [showOtherInput, setShowOtherInput] = useState(false);
   const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
   const { isProcessing, debounce } = useDebounce();
 
   useEffect(() => {
@@ -30,13 +59,18 @@ export default function FollowUpQuestionsScreen() {
   }, []);
 
   const loadQuestions = async () => {
+    setLoading(true);
+    setLoadError(false);
     try {
-      const { collection, getDocs } = await import('firebase/firestore');
-      const { db } = await import('../services/authService');
-      
       const questionsRef = collection(db, 'questionnaire');
-      const snapshot = await getDocs(questionsRef);
-      const questionsData = snapshot.docs
+      // Prefer a fresh server read over the local cache: on a device that has
+      // never cached this collection, a cache-only response under flaky
+      // connectivity comes back empty (not an error), which looks identical
+      // to "no questions configured." Fall back to getDocs (cache-aware) only
+      // if the server round-trip itself fails, so we still degrade gracefully
+      // when genuinely offline.
+      const snapshot = await getDocsFromServer(questionsRef).catch(() => getDocs(questionsRef));
+      let questionsData = snapshot.docs
         .map(doc => ({
           id: doc.id,
           question: doc.data().text,
@@ -45,11 +79,26 @@ export default function FollowUpQuestionsScreen() {
           order: doc.data().order
         }))
         .sort((a, b) => a.order - b.order);
-      
+
+      // Both the server and the cache came back with nothing — most likely
+      // this device has no connectivity and has never synced this
+      // collection before, rather than the questionnaire genuinely being
+      // empty. Fall back to the bundled defaults so the visit can proceed.
+      if (questionsData.length === 0) {
+        console.warn('Questionnaire came back empty from both server and cache; using bundled defaults.');
+        questionsData = DEFAULT_QUESTIONS.map(q => ({
+          id: q.id,
+          question: q.text,
+          type: 'text' as const,
+          placeholder: 'Enter your answer...',
+          order: q.order,
+        }));
+      }
+
       setQuestions(questionsData);
     } catch (error) {
       console.error('Error loading questions:', error);
-      Alert.alert('Error', 'Failed to load questions');
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -95,34 +144,35 @@ export default function FollowUpQuestionsScreen() {
         [
           { text: 'Cancel', style: 'cancel' },
           { 
-            text: 'Complete Visit', 
+            text: 'Complete Visit',
             onPress: async () => {
+              setIsCompleting(true);
               try {
-              const { AssignmentService } = await import('../services/assignmentService');
-              const { PatientService } = await import('../services/patientService');
-              const { collection, addDoc, Timestamp, doc, getDoc } = await import('firebase/firestore');
-              const { db } = await import('../services/authService');
-              const { useAuth } = await import('../hooks/AuthContext');
-
-              // Get actual patient name from database
+              // Get actual patient name from database. This is a nice-to-have
+              // enrichment (we already have a name from route params), so a
+              // failure here — e.g. no connectivity and this patient was
+              // never cached — must not block the actual visit record below.
               let actualPatientName = name as string;
               if (patientId) {
-                const patient = await PatientService.getPatientById(patientId as string);
-                if (patient) {
-                  actualPatientName = patient.name;
+                try {
+                  const patient = await withTimeout(
+                    PatientService.getPatientById(patientId as string),
+                    6000,
+                    'patient name lookup'
+                  );
+                  if (patient) {
+                    actualPatientName = patient.name;
+                  }
+                } catch (patientLookupError) {
+                  console.error('Could not refresh patient name, using cached value:', patientLookupError);
                 }
               }
 
-              // Get expert name from users collection
-              let expertName = 'Unknown Expert';
-              const assignment = await AssignmentService.getAssignmentById(assignmentId as string);
-              if (assignment?.expertId) {
-                const expertDoc = await getDoc(doc(db, 'users', assignment.expertId));
-                if (expertDoc.exists()) {
-                  const expertData = expertDoc.data();
-                  expertName = `${expertData.firstName || ''} ${expertData.lastName || ''}`.trim() || expertData.email;
-                }
-              }
+              // The logged-in expert's identity is already available from
+              // AuthContext — no need to round-trip through the assignment
+              // and users collections to re-derive it.
+              const expertId = user?.uid || '';
+              const expertName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email || 'Unknown Expert';
 
               const answersObj = answers.reduce((acc, ans) => {
                 acc[`q${ans.questionId}`] = ans.answer;
@@ -133,8 +183,8 @@ export default function FollowUpQuestionsScreen() {
                 patientId: patientId as string,
                 assignmentId: assignmentId as string,
                 patientName: actualPatientName,
-                expertId: assignment?.expertId || '',
-                expertName: expertName,
+                expertId,
+                expertName,
                 checkInLocation: (checkInLocation as string) || 'Location recorded',
                 checkInCoordinates: {
                   latitude: checkInLat ? parseFloat(checkInLat as string) : 0,
@@ -147,33 +197,53 @@ export default function FollowUpQuestionsScreen() {
               };
 
               console.log('Saving visit data:', visitData);
-              await addDoc(collection(db, 'visits'), visitData);
+              // This is the one write that must actually succeed for the visit
+              // to count — Firestore's offline queue applies it to the local
+              // cache and resolves immediately even with zero connectivity, so
+              // this timeout is a safety net, not the expected path.
+              await withTimeout(addDoc(collection(db, 'visits'), visitData), 15000, 'saving the visit');
 
-              // Log activity
-              const { ActivityLogService } = await import('../services/activityLogService');
-              await ActivityLogService.logActivity(
-                'Visit Completed',
-                assignment?.expertId || '',
-                expertName,
-                'expert',
-                `Completed visit with ${actualPatientName}`
-              );
+              // Everything below is best-effort follow-up work (activity log,
+              // marking the assignment complete, notifying admins). The visit
+              // itself is already saved at this point, so none of these
+              // should be able to block the success message from showing.
+              try {
+                await withTimeout(
+                  ActivityLogService.logActivity(
+                    'Visit Completed',
+                    expertId,
+                    expertName,
+                    'expert',
+                    `Completed visit with ${actualPatientName}`
+                  ),
+                  6000,
+                  'activity log'
+                );
+              } catch (logError) {
+                console.error('Could not log activity (visit was still saved):', logError);
+              }
 
               if (assignmentId) {
-                await AssignmentService.updateAssignmentStatus(
-                  assignmentId as string,
-                  'completed',
-                  new Date().toISOString()
-                );
+                try {
+                  await withTimeout(
+                    AssignmentService.updateAssignmentStatus(
+                      assignmentId as string,
+                      'completed',
+                      new Date().toISOString()
+                    ),
+                    6000,
+                    'marking assignment complete'
+                  );
+                } catch (statusError) {
+                  console.error('Could not update assignment status (visit was still saved):', statusError);
+                }
               }
 
               // Send notification to all admins
               try {
-                const { NotificationService } = await import('../services/notificationService');
-                const { query, where, getDocs } = await import('firebase/firestore');
                 const usersRef = collection(db, 'users');
                 const adminQuery = query(usersRef, where('role', '==', 'admin'));
-                const adminSnapshot = await getDocs(adminQuery);
+                const adminSnapshot = await withTimeout(getDocs(adminQuery), 6000, 'admin lookup');
                 
                 console.log('Found admins:', adminSnapshot.size);
                 
@@ -193,6 +263,7 @@ export default function FollowUpQuestionsScreen() {
                 console.error('Error sending notifications:', notifError);
               }
 
+              setIsCompleting(false);
               Alert.alert(
                 'Visit Completed',
                 'The visit has been completed successfully. The task has been moved to completed.',
@@ -200,6 +271,7 @@ export default function FollowUpQuestionsScreen() {
               );
               } catch (error) {
                 console.error('Error completing visit:', error);
+                setIsCompleting(false);
                 Alert.alert('Error', 'Failed to complete visit. Please try again.');
               }
             }
@@ -215,6 +287,24 @@ export default function FollowUpQuestionsScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={professionalTheme.colors.primary} />
           <Text style={styles.loadingText}>Loading questions...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Ionicons name="cloud-offline-outline" size={64} color={professionalTheme.colors.text.muted} />
+          <Text style={styles.emptyText}>Couldn't load the follow-up questions</Text>
+          <Text style={styles.loadingText}>Check your connection and try again.</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadQuestions}>
+            <Text style={styles.submitButtonText}>Retry</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -291,11 +381,21 @@ export default function FollowUpQuestionsScreen() {
         </TouchableOpacity>
 
         {currentQuestion === questions.length - 1 && answers.length === questions.length && (
-          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={isProcessing}>
-            <Text style={styles.submitButtonText}>{isProcessing ? 'Completing...' : 'Complete Visit'}</Text>
+          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={isProcessing || isCompleting}>
+            <Text style={styles.submitButtonText}>{isCompleting ? 'Completing...' : 'Complete Visit'}</Text>
           </TouchableOpacity>
         )}
       </View>
+
+      {isCompleting && (
+        <View style={styles.completingOverlay}>
+          <View style={styles.completingCard}>
+            <ActivityIndicator size="large" color={professionalTheme.colors.primary} />
+            <Text style={styles.completingText}>Completing visit...</Text>
+            <Text style={styles.completingSubtext}>This can take a bit longer with a weak connection — it will still save.</Text>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -304,6 +404,35 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: professionalTheme.colors.background.light,
+  },
+  completingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(12, 30, 61, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: professionalTheme.spacing.xl,
+  },
+  completingCard: {
+    backgroundColor: professionalTheme.colors.background.card,
+    borderRadius: professionalTheme.borderRadius.lg,
+    padding: professionalTheme.spacing.xl,
+    alignItems: 'center',
+    gap: professionalTheme.spacing.sm,
+    maxWidth: 320,
+  },
+  completingText: {
+    fontSize: professionalTheme.fontSize.md,
+    fontWeight: professionalTheme.fontWeight.semibold as '600',
+    color: professionalTheme.colors.text.primary,
+  },
+  completingSubtext: {
+    fontSize: professionalTheme.fontSize.sm,
+    color: professionalTheme.colors.text.muted,
+    textAlign: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -317,6 +446,18 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: professionalTheme.spacing.sm,
+  },
+  backButtonText: {
+    fontSize: professionalTheme.fontSize.md,
+    fontWeight: professionalTheme.fontWeight.medium as '500',
+    color: professionalTheme.colors.text.secondary,
+  },
+  retryButton: {
+    backgroundColor: professionalTheme.colors.primary,
+    borderRadius: professionalTheme.borderRadius.md,
+    paddingVertical: professionalTheme.spacing.md,
+    paddingHorizontal: professionalTheme.spacing.xl,
+    marginBottom: professionalTheme.spacing.md,
   },
   headerTitle: {
     fontSize: professionalTheme.fontSize.lg,
@@ -400,8 +541,14 @@ const styles = StyleSheet.create({
     padding: professionalTheme.spacing.lg,
     fontSize: professionalTheme.fontSize.md,
     color: professionalTheme.colors.text.primary,
+    backgroundColor: professionalTheme.colors.background.card,
     textAlignVertical: 'top',
     minHeight: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
   submitTextButton: {
     backgroundColor: professionalTheme.colors.primary,

@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, query, where, addDoc, updateDoc, orderBy } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, getDocsFromServer, query, where, addDoc, updateDoc, orderBy } from 'firebase/firestore';
 import { db } from './authService';
 
 export interface Assignment {
@@ -41,14 +41,24 @@ export class AssignmentService {
         where('expertId', '==', expertId),
         where('status', '==', status)
       );
-      const querySnapshot = await getDocs(q);
-      
+      // Prefer a fresh server read: right after completing a visit, the
+      // freshly-updated status needs to actually show up here instead of a
+      // stale cached snapshot from before the update.
+      const querySnapshot = await getDocsFromServer(q).catch(() => getDocs(q));
+
       const assignments = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       } as Assignment));
 
-      // Sort by priority and date
+      if (status === 'completed') {
+        // Most recently completed first.
+        return assignments.sort((a, b) =>
+          new Date(b.completedDate || 0).getTime() - new Date(a.completedDate || 0).getTime()
+        );
+      }
+
+      // Pending: highest priority first, then most recently assigned.
       const priorityOrder: Record<string, number> = { 'High': 1, 'Medium': 2, 'Low': 3 };
       return assignments.sort((a, b) => {
         const priorityDiff = (priorityOrder[a.priority] || 4) - (priorityOrder[b.priority] || 4);

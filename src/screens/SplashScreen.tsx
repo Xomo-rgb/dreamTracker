@@ -1,10 +1,11 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { professionalTheme } from '../theme/professional';
+import { StatusBar } from 'expo-status-bar';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Image, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/AuthContext';
+import { professionalTheme } from '../theme/professional';
 
 export default function SplashScreen() {
   const { user, loading } = useAuth();
@@ -55,11 +56,17 @@ export default function SplashScreen() {
               }
             ]}
           >
-            <Text style={styles.appName}>Dream Tracker</Text>
-            <Text style={styles.tagline}>Patient Care Management</Text>
+            <Image
+              source={require('../../assets/images/logo/sant-egidio-mark.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Text style={styles.appName}>DreamTracker</Text>
+            <Text style={styles.tagline}>Patient Tracking Management</Text>
           </Animated.View>
         </View>
       </SafeAreaView>
+      <StatusBar style="light" />
     </LinearGradient>
   );
 }
@@ -79,6 +86,11 @@ const styles = StyleSheet.create({
   },
   textContainer: {
     alignItems: 'center',
+  },
+  logo: {
+    width: 160,
+    height: 135,
+    marginBottom: professionalTheme.spacing.lg,
   },
   appName: {
     fontSize: 48,

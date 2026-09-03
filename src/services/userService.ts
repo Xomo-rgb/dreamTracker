@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from './authService';
 
 export interface UserProfile {
@@ -60,6 +60,18 @@ export class UserService {
       console.log('User profile updated in Firebase:', userId);
     } catch (error) {
       console.error('Error updating user profile:', error);
+      throw error;
+    }
+  }
+
+  static async getActiveExpertsCount(): Promise<number> {
+    try {
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('role', '==', 'expert'));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.filter(doc => doc.data().isActive !== false).length;
+    } catch (error) {
+      console.error('Error fetching active experts count:', error);
       throw error;
     }
   }

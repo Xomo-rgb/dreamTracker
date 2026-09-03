@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 import { ProfessionalHeader } from '../components/common/ProfessionalHeader';
 import { AnalyticsCard } from '../components/common/AnalyticsCard';
 import { professionalTheme } from '../theme/professional';
@@ -80,8 +81,9 @@ export default function ExpertHomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="light" />
       <LinearGradient
-        colors={['#0ea5e9', '#06b6d4', '#22d3ee']}
+        colors={['#0c1e3d', '#1e3a8a', '#2563eb']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.headerGradient}
@@ -111,8 +113,8 @@ export default function ExpertHomeScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={styles.metricsGrid}>
           <View style={styles.metricCard}>
-            <View style={[styles.metricIconContainer, { backgroundColor: '#0ea5e920' }]}>
-              <Ionicons name="time" size={24} color="#0ea5e9" />
+            <View style={[styles.metricIconContainer, { backgroundColor: '#06b6e020' }]}>
+              <Ionicons name="time" size={24} color="#06b6e0" />
             </View>
             <Text style={styles.metricValue}>{stats.pendingVisits}</Text>
             <Text style={styles.metricLabel}>Pending Visits</Text>
@@ -356,7 +358,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#0ea5e9',
+    backgroundColor: professionalTheme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: professionalTheme.spacing.md,
@@ -413,12 +415,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0ea5e9',
+    backgroundColor: professionalTheme.colors.primary,
     borderRadius: 16,
     padding: professionalTheme.spacing.lg,
     marginBottom: professionalTheme.spacing.xl,
     gap: professionalTheme.spacing.sm,
-    shadowColor: '#0ea5e9',
+    shadowColor: professionalTheme.colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

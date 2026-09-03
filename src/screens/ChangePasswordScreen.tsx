@@ -7,6 +7,8 @@ import { professionalTheme } from '../theme/professional';
 import { PasswordInput } from '../components/ui/PasswordInput';
 import { ActivityLogService } from '../services/activityLogService';
 import { useAuth } from '../hooks/AuthContext';
+import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { AuthService } from '../services/authService';
 
 export default function ChangePasswordScreen() {
   const { user } = useAuth();
@@ -69,9 +71,6 @@ export default function ChangePasswordScreen() {
 
     setLoading(true);
     try {
-      const { updatePassword, EmailAuthProvider, reauthenticateWithCredential } = await import('firebase/auth');
-      const { AuthService } = await import('../services/authService');
-      
       const user = AuthService.getCurrentUser();
       if (!user || !user.email) {
         throw new Error('No user logged in');
@@ -232,6 +231,11 @@ const styles = StyleSheet.create({
     fontSize: professionalTheme.fontSize.md,
     color: professionalTheme.colors.text.primary,
     backgroundColor: professionalTheme.colors.background.card,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
   submitButton: {
     backgroundColor: professionalTheme.colors.primary,

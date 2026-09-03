@@ -41,20 +41,17 @@ export default function VisitScreen() {
         }
 
         setCurrentLocation(location);
-        setVisitStatus('checked_in');
-        
-        LocationService.getAddressFromCoordinates(
+
+        const address = await LocationService.getAddressFromCoordinates(
           location.latitude,
           location.longitude
-        ).then(address => {
-          setCheckInAddress(address);
-        }).catch(() => {
-          setCheckInAddress('Location recorded');
-        });
-        
+        ).catch(() => 'Location recorded');
+        setCheckInAddress(address);
+        setVisitStatus('checked_in');
+
         Alert.alert(
           'Checked In Successfully',
-          `Location recorded: ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}\n\nYou can now proceed with the visit.`,
+          `You're checked in at ${address}.\n\nYou can now proceed with the visit.`,
           [{ text: 'OK' }]
         );
       } catch (error) {
@@ -114,7 +111,7 @@ export default function VisitScreen() {
         {visitStatus === 'checked_in' && (
           <View style={styles.actionCard}>
             <View style={styles.iconContainer}>
-              <Ionicons name="clipboard" size={48} color={professionalTheme.colors.status.success} />
+              <Ionicons name="clipboard" size={48} color={professionalTheme.colors.primary} />
             </View>
             <Text style={styles.actionTitle}>Ready for Visit</Text>
             <Text style={styles.actionDescription}>
@@ -122,11 +119,11 @@ export default function VisitScreen() {
             </Text>
             {checkInAddress && (
               <View style={styles.locationInfo}>
-                <Ionicons name="location" size={16} color={professionalTheme.colors.status.success} />
+                <Ionicons name="location" size={16} color={professionalTheme.colors.primary} />
                 <Text style={styles.locationText}>{checkInAddress}</Text>
               </View>
             )}
-            <TouchableOpacity style={styles.successButton} onPress={handleStartQuestions}>
+            <TouchableOpacity style={styles.primaryButton} onPress={handleStartQuestions}>
               <Ionicons name="clipboard" size={20} color={professionalTheme.colors.text.white} />
               <Text style={styles.primaryButtonText}>Start Follow-up Questions</Text>
             </TouchableOpacity>
@@ -250,20 +247,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
-  successButton: {
-    backgroundColor: professionalTheme.colors.status.success,
-    borderRadius: professionalTheme.borderRadius.md,
-    paddingVertical: professionalTheme.spacing.lg,
-    paddingHorizontal: professionalTheme.spacing.xl * 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: professionalTheme.spacing.sm,
-    shadowColor: professionalTheme.colors.status.success,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-  },
   primaryButtonText: {
     fontSize: professionalTheme.fontSize.md,
     fontWeight: professionalTheme.fontWeight.semibold,
@@ -276,7 +259,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: professionalTheme.spacing.xs,
-    backgroundColor: `${professionalTheme.colors.status.success}10`,
+    backgroundColor: `${professionalTheme.colors.primary}10`,
     padding: professionalTheme.spacing.md,
     borderRadius: professionalTheme.borderRadius.md,
     marginBottom: professionalTheme.spacing.lg,

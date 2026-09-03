@@ -5,6 +5,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { professionalTheme } from '../theme/professional';
 import { useAuth } from '../hooks/AuthContext';
+import { NotificationService } from '../services/notificationService';
 
 export default function SettingsScreen() {
   const { user, signOut } = useAuth();
@@ -24,7 +25,6 @@ export default function SettingsScreen() {
 
   const loadUnreadCount = async () => {
     if (user?.uid) {
-      const { NotificationService } = await import('../services/notificationService');
       const count = await NotificationService.getUnreadCount(user.uid);
       setUnreadCount(count);
     }
